@@ -43,6 +43,8 @@ export const Message = React.memo((props: IMessageProps) => {
 	} = props;
 	const { reaction, role, skill, text } = message;
 	const agentRun = useAgentRun(id as string);
+	const isAgentPending = message.extras?.agentPending === 'true';
+	const hasAgentTrace = !!agentRun?.events.some(event => event.kind !== 'finish');
 
 	const [hidden, setHidden] = useState(!isLastMessage);
 	const [fileIds, setFileIds] = useState<string[]>([]);
@@ -63,8 +65,9 @@ export const Message = React.memo((props: IMessageProps) => {
 	const isReactionsVisible = useMemo(
 		() =>
 			role === ERoles.bot &&
+			!isAgentPending &&
 			(!message.extras?.type || message.extras?.type !== 'system'),
-		[message.extras?.type, role],
+		[isAgentPending, message.extras?.type, role],
 	);
 	const onMouseOver = useCallback(() => {
 		if (isLastMessage) {
@@ -141,8 +144,8 @@ export const Message = React.memo((props: IMessageProps) => {
 			onMouseLeave={onMouseLeave}
 			onMouseOver={onMouseOver}
 		>
-			{agentRun && <AgentActivity run={agentRun} />}
-			<div
+			{(hasAgentTrace || isAgentPending) && <AgentActivity run={hasAgentTrace ? agentRun : undefined} />}
+			{(loader || text || fileIds.length > 0 || !!graphsData) && <div
 				className={cn(classes.message, {
 					[classes.messageBot]: role === ERoles.bot || loader,
 					[classes.messageLoader]: loader,
@@ -196,7 +199,7 @@ export const Message = React.memo((props: IMessageProps) => {
 						data={graphsData as IChartData}
 					/>
 				)}
-			</div>
+			</div>}
 			{(isReactionsVisible || skill) && (
 				<Row
 					className={cn(classes.attributes, {

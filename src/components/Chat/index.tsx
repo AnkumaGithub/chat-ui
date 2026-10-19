@@ -221,7 +221,7 @@ export const Chat = React.memo(
 				</div>
 				<div className={classes.content}>
 					<div className={classes.messages} ref={messageContainerRef}>
-						{isLoading && <Message key="loader" loader />}
+						{isLoading && !messages.some(message => message.extras?.agentPending === 'true') && <Message key="loader" loader />}
 						{[...messages].reverse().map((message, index) => (
 							<Message
 								id={message.id}
