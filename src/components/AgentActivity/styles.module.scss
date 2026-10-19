@@ -29,6 +29,7 @@
 .stepHeader { min-height: 20px; }
 .stepHeader strong { font-size: 14px; font-weight: 400; color: var(--textBaseDefault); }
 .step p, .meta { color: var(--textBaseSecondary); font-size: 13px; line-height: 18px; }
+.step p { white-space: pre-line; }
 .marker { position: absolute; left: 0; top: 2px; opacity: 0; color: var(--textBaseSecondary) !important; }
 .step:hover > .stepHeader .marker, .step:focus-within > .stepHeader .marker { opacity: 1; }
 .step:hover::after, .step:focus-within::after { opacity: 0; }

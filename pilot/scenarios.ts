@@ -9,7 +9,7 @@ export const scenarios = [
   {id: 'registration', title: 'Регистрация события', question: 'Помоги зарегистрировать событие операционного риска.'},
   {id: 'ordinary', title: 'Обычный чат без формы', question: 'Кратко объясни, что такое операционный риск.'},
   {id: 'finalOnly', title: 'Ответ без потока', question: 'Объясни, что такое операционный риск, без промежуточных событий.'},
-  {id: 'backendCallback', title: 'Текущий бэкенд · пакет в конце', question: 'Проверь профиль компании, спроси методолога и посмотри реестр рисков.'},
+  {id: 'backendCallback', title: 'Текущий контракт /ainvoke', question: 'Проверь профиль компании, спроси методолога и посмотри реестр рисков.'},
 ] as const;
 export type ScenarioId = typeof scenarios[number]['id'];
 export const chart: IChartData = {
@@ -21,9 +21,11 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
   const backendSteps: string[] = [];
   if (scenario === 'finalOnly') return {events, backendSteps, answer: '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'};
   if (scenario === 'backendCallback') {
-    // Exact fixed labels from sber_orm_agent_universal_layer/api/norm_chat.py.
-    // The order is illustrative; this pilot does not call the backend.
+    // Exact service texts from api/norm_chat.py and tests/unit/test_norm_chat.py.
+    // The plan's todo contents are the backend test fixture, not fixed agent phrases.
+    // The combination/order is illustrative; this pilot does not call the backend.
     backendSteps.push(
+      'План:\n✓ Уточнить требования\n→ Собрать данные\n• Ответить',
       'Посмотрел профиль компании',
       'Подключил профильного помощника',
       'Спросил методолога',
