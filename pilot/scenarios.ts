@@ -8,6 +8,7 @@ export const scenarios = [
   {id: 'rich', title: 'Файл, таблица и график', question: 'Покажи потери по месяцам: таблицу, график и краткий отчёт.'},
   {id: 'registration', title: 'Регистрация события', question: 'Помоги зарегистрировать событие операционного риска.'},
   {id: 'ordinary', title: 'Обычный чат без формы', question: 'Кратко объясни, что такое операционный риск.'},
+  {id: 'finalOnly', title: 'Ответ без потока', question: 'Объясни, что такое операционный риск, без промежуточных событий.'},
 ] as const;
 export type ScenarioId = typeof scenarios[number]['id'];
 export const chart: IChartData = {
@@ -16,6 +17,7 @@ export const chart: IChartData = {
 };
 export function fixture(scenario: ScenarioId, runId: string, start: number) {
   const events: AgentEvent[] = [];
+  if (scenario === 'finalOnly') return {events, answer: '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'};
   const add = (kind: AgentEvent['kind'], data: Partial<AgentEvent> = {}) => events.push({id: `${runId}-${events.length}`, runId, at: start + (events.length + 1) * 700, kind, ...data});
   add('plan', {tool: 'write_todos', todos: [{content:'Проверить данные компании', status:'in_progress'}, {content:'Свериться с методологией и реестром', status:'pending'}, {content:'Подготовить ответ', status:'pending'}]});
   add('thinking', {text: 'Сначала проверю профиль компании, затем сопоставлю его с методологией и реестром. Демонстрационный шаг.'});

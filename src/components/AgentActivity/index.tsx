@@ -9,8 +9,7 @@ export function AgentActivity({ run }: { run: AgentRun }) {
   const [expanded, setExpanded] = useState(false);
   const traceId = useId();
 
-  const duration = Math.max(1, Math.round(((run.finishedAt || run.startedAt) - run.startedAt) / 1000));
-  const label = run.status === 'running' ? run.currentActivity : run.status === 'failed' ? 'Не удалось завершить ответ' : `Я отвечал ${duration} секунд`;
+  const label = run.status === 'running' ? run.currentActivity : run.status === 'failed' ? 'Не удалось завершить ответ' : 'Ответ готов';
   return <section className={classes.activity} aria-label="Ход работы агента" data-status={run.status} data-expanded={expanded}>
     <button type="button" className={classes.live} aria-label={label} aria-expanded={expanded} aria-controls={traceId} onClick={() => setExpanded(value => !value)}>
       <ChatLogoSVG className={classes.agentIcon}/><span role="status" aria-live="polite">{label}</span><Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>

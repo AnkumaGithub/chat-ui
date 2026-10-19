@@ -15,7 +15,6 @@
 .step { margin: 0 0 16px; padding-left: 10px; min-width: 0; overflow-wrap: anywhere; &:last-child { margin-bottom: 0; } p { margin: 6px 0; } &[data-kind='error'] .marker { color: var(--textTechDanger); } &[data-kind='empty'] .marker { color: var(--backgroundTechWarning); } &[data-kind='delegation'] .marker { color: var(--iconBrandDefault); } }
 .stepHeader { display: flex; align-items: center; gap: 8px; strong { font-size: 13px; } }
 .marker { color: var(--iconBrandDefault); flex-shrink: 0; }
-.time { margin-left: auto; color: var(--textBaseSecondary); white-space: nowrap; font-size: inherit; }
 .meta { color: var(--textBaseSecondary); font-size: 12px; margin: 4px 0; code { color: var(--textBaseDefault); } }
 .payload { margin-top: 6px; summary { cursor: pointer; color: var(--textBaseSecondary); font-size: 12px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--backgroundSecondaryDefault); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 18px; margin: 8px 0; } }
 .plan { padding: 0; list-style: none; li { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; margin: 6px 0; } small { color: var(--textBaseSecondary); font-size: inherit; } }

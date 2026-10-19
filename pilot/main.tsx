@@ -31,8 +31,8 @@ function historicalThread(id: string, title: string, scenario: ScenarioId, minut
   const {events, answer} = fixture(scenario, responseId, startedAt);
   let run = createRun(responseId, requestId, startedAt);
   events.forEach(event => { run = appendEvent(run, event); });
-  run = appendEvent(run, {id: `${responseId}-finish`, runId: responseId, at: startedAt + 10_000, kind: 'finish'});
-  return {id, title, scenario, pinned, initialSkill, updatedAt: startedAt, runs: {[responseId]: run}, messages: [
+  if (events.length) run = appendEvent(run, {id: `${responseId}-finish`, runId: responseId, at: startedAt + 10_000, kind: 'finish'});
+  return {id, title, scenario, pinned, initialSkill, updatedAt: startedAt, runs: events.length ? {[responseId]: run} : {}, messages: [
     {id: requestId, role: ERoles.user, text: scenarios.find(item => item.id === scenario)!.question, timeCreated: new Date(startedAt).toISOString()},
     {id: responseId, requestId, role: ERoles.bot, text: answer, timeCreated: new Date(startedAt + 1).toISOString(), extras: scenario === 'rich' ? {fileIds:'["demo-report"]', chart} as IMessage['extras'] : undefined},
   ]};
@@ -81,9 +81,10 @@ function App() {
     const requestExtras = {...(extras || {}), ...(selectedSkillId ? {skill:selectedSkillId, skillTitle:assistantSkills.find(item => item.id === selectedSkillId)?.title || ''} : {})};
     addMessageAction(ctx, {id:requestId, role:ERoles.user, text:body || scenarios.find(item => item.id === id)!.question, timeCreated:new Date(startedAt).toISOString(), extras:Object.keys(requestExtras).length ? requestExtras : (id === 'rich' ? {fileIds:'["demo-input"]'} : {})});
     const base: IMessage = {id:responseId, requestId, role:ERoles.bot, timeCreated:new Date(startedAt + 1).toISOString()}; const resultExtras = id === 'rich' ? {fileIds:'["demo-report"]', chart} : undefined;
-    const finish = () => { run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:startedAt + 10_000, kind:'finish'}); updateRun(); addMessageAction(ctx, {...base, text:answer, extras:resultExtras as IMessage['extras']}); setPlaying(false); queueMicrotask(storeCurrent); };
+    const finish = () => { if (events.length) {run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:startedAt + 10_000, kind:'finish'}); updateRun();} isLoadingAtom(ctx, false); addMessageAction(ctx, {...base, text:answer, extras:resultExtras as IMessage['extras']}); setPlaying(false); queueMicrotask(storeCurrent); };
     if (instant) { events.forEach(event => { run = appendEvent(run,event); }); finish(); }
-    else { updateRun(); addMessageAction(ctx, {...base, text:'Готовлю ответ…', extras:{type:'system'}}); events.forEach((event,index) => later(() => {run = appendEvent(run, {...event, at:Date.now()}); updateRun();}, (index + 1) * 700)); const chunks = answer.match(/.{1,36}(?:\s|$)|.{1,36}/gs) || [answer]; let text = ''; chunks.forEach((chunk,index) => later(() => {text += chunk; addMessageAction(ctx, {...base,text,extras:{type:'system'}});}, events.length * 700 + (index + 1) * 65)); later(finish, events.length * 700 + (chunks.length + 1) * 65); }
+    else if (!events.length) { isLoadingAtom(ctx, true); later(finish, 2200); }
+    else { addMessageAction(ctx, {...base, text:'Готовлю ответ…', extras:{type:'system'}}); events.forEach((event,index) => later(() => {run = appendEvent(run, {...event, at:Date.now()}); updateRun();}, (index + 1) * 700)); const chunks = answer.match(/.{1,36}(?:\s|$)|.{1,36}/gs) || [answer]; let text = ''; chunks.forEach((chunk,index) => later(() => {text += chunk; addMessageAction(ctx, {...base,text,extras:{type:'system'}});}, events.length * 700 + (index + 1) * 65)); later(finish, events.length * 700 + (chunks.length + 1) * 65); }
     chat$.openChat();
   }
   useEffect(() => { const listener = (event: Event) => setActionUrl((event as CustomEvent<string>).detail); window.addEventListener('pilot:navigate',listener); later(() => {loadThread(threadsRef.current[0]); if (window.innerWidth >= 600) chat$.changeChatState(EChatState.fullScreen); chat$.openChat();}, 50); return () => {clearTimers(); window.removeEventListener('pilot:navigate',listener);}; }, []);

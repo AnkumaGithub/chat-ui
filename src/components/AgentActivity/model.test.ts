@@ -27,7 +27,7 @@ describe('UI run protocol', () => {
     for (const e of [event('a', 'toolCall', {callId: '1', source: 'Компания', tool: 'get_company_profile'}), event('b', 'empty', {callId: '1'}), event('c', 'finish', {at: 12000})]) run = appendEvent(run, e);
     expect(sourcesForRun(run)[0].status).toBe('empty');
     expect(runSummary(run)).toContain('0/1');
-    expect(runSummary(run)).toContain('12 с');
+    expect(runSummary(run)).not.toMatch(/\d+ с(?:\s|$)/);
     expect(appendEvent(run, event('late', 'toolCall'))).toBe(run);
   });
   it('terminates on fatal error without claiming a completed answer', () => {
