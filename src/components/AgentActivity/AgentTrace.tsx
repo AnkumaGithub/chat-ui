@@ -14,7 +14,7 @@ function TraceSteps({ run, parent }: { run: AgentRun; parent?: string }) {
   return <ol className={classes.trace}>
     {run.events.filter(event => event.kind !== 'finish' && event.parentCallId === parent).map(event => {
       const lines = event.text?.split('\n').map(line => line.trim()).filter(Boolean) || [];
-      const bulletItems = lines.length > 1 && lines.every(line => /^[✓→•]\s+/.test(line))
+      const bulletItems = event.kind !== 'toolResult' && lines.length > 1 && lines.every(line => /^[✓→•]\s+/.test(line))
         ? lines.map(line => line.replace(/^[✓→•]\s+/, ''))
         : null;
       return <li key={event.id} className={classes.step} data-kind={event.kind} data-active={run.status === 'running' && event.id === run.events.at(-1)?.id} tabIndex={0}>

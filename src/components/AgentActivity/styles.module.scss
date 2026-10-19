@@ -37,7 +37,7 @@
 .plan li { grid-template-columns: 1fr auto; font-size: 13px; color: var(--textBaseSecondary); }
 .backendPlan { list-style: none; display: grid; gap: 5px; margin: 6px 0 0; padding: 0; color: var(--textBaseSecondary); font-size: 13px; line-height: 18px; }
 .backendPlan li { position: relative; padding-left: 14px; }
-.backendPlan li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: #c6c9cd; }
+.backendPlan li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .5; }
 .sourceSummary li { grid-template-columns: 1fr auto; }
 .step[data-active='true'] > .stepHeader strong, .activity[data-status='running'] .live > span { background: linear-gradient(100deg,#333 30%,#aaa 48%,#333 66%); background-size: 240% 100%; background-clip: text; -webkit-background-clip: text; color: transparent; animation: activityShimmer 2.8s linear infinite; }
 @keyframes activityShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
