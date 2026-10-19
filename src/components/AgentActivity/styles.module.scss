@@ -16,7 +16,6 @@
 .stepHeader { display: flex; align-items: center; gap: 8px; strong { font-size: 13px; } }
 .marker { color: var(--iconBrandDefault); flex-shrink: 0; }
 .meta { color: var(--textBaseSecondary); font-size: 12px; margin: 4px 0; code { color: var(--textBaseDefault); } }
-.payload { margin-top: 6px; summary { cursor: pointer; color: var(--textBaseSecondary); font-size: 12px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--backgroundSecondaryDefault); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 18px; margin: 8px 0; } }
 .plan { padding: 0; list-style: none; li { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; margin: 6px 0; } small { color: var(--textBaseSecondary); font-size: inherit; } }
 .sourceSummary { > strong { font-size: 13px; } ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; } li { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; } li[data-status='error'] { color: var(--textTechDanger); } small { color: var(--textBaseSecondary); font-size: inherit; } }
 
@@ -34,10 +33,6 @@
 .step:hover::after, .step:focus-within::after { opacity: 0; }
 .step:focus-visible { outline: 1px solid var(--borderFocus); outline-offset: 3px; border-radius: 6px; }
 .plan li { grid-template-columns: 1fr auto; font-size: 13px; color: var(--textBaseSecondary); }
-.payload summary { display: flex; align-items: center; gap: 4px; list-style: none; }
-.payload summary::-webkit-details-marker { display: none; }
-.payloadChevron { flex-shrink: 0; }
-.payload[open] > summary .payloadChevron { transform: rotate(90deg); }
 .sourceSummary li { grid-template-columns: 1fr auto; }
 .step[data-active='true'] > .stepHeader strong, .activity[data-status='running'] .live > span { background: linear-gradient(100deg,#333 30%,#aaa 48%,#333 66%); background-size: 240% 100%; background-clip: text; -webkit-background-clip: text; color: transparent; animation: activityShimmer 2.8s linear infinite; }
 @keyframes activityShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
