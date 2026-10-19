@@ -9,6 +9,7 @@ export const scenarios = [
   {id: 'registration', title: 'Регистрация события', question: 'Помоги зарегистрировать событие операционного риска.'},
   {id: 'ordinary', title: 'Обычный чат без формы', question: 'Кратко объясни, что такое операционный риск.'},
   {id: 'finalOnly', title: 'Ответ без потока', question: 'Объясни, что такое операционный риск, без промежуточных событий.'},
+  {id: 'backendCallback', title: 'Текущий бэкенд · пакет в конце', question: 'Проверь профиль компании, спроси методолога и посмотри реестр рисков.'},
 ] as const;
 export type ScenarioId = typeof scenarios[number]['id'];
 export const chart: IChartData = {
@@ -17,7 +18,19 @@ export const chart: IChartData = {
 };
 export function fixture(scenario: ScenarioId, runId: string, start: number) {
   const events: AgentEvent[] = [];
-  if (scenario === 'finalOnly') return {events, answer: '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'};
+  const backendSteps: string[] = [];
+  if (scenario === 'finalOnly') return {events, backendSteps, answer: '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'};
+  if (scenario === 'backendCallback') {
+    // Exact fixed labels from sber_orm_agent_universal_layer/api/norm_chat.py.
+    // The order is illustrative; this pilot does not call the backend.
+    backendSteps.push(
+      'Посмотрел профиль компании',
+      'Подключил профильного помощника',
+      'Спросил методолога',
+      'Посмотрел реестр рисков — источник недоступен',
+    );
+    return {events, backendSteps, answer: '**Демонстрационный итоговый ответ.** Его содержание в настоящем запросе генерирует модель; фиксированных текстов ответа в бэкенде нет.'};
+  }
   const add = (kind: AgentEvent['kind'], data: Partial<AgentEvent> = {}) => events.push({id: `${runId}-${events.length}`, runId, at: start + (events.length + 1) * 700, kind, ...data});
   add('plan', {tool: 'write_todos', todos: [{content:'Проверить данные компании', status:'in_progress'}, {content:'Свериться с методологией и реестром', status:'pending'}, {content:'Подготовить ответ', status:'pending'}]});
   add('thinking', {text: 'Сначала проверю профиль компании, затем сопоставлю его с методологией и реестром. Демонстрационный шаг.'});
@@ -50,5 +63,5 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     : scenario === 'empty' ? '**В реестре нет записей по заданным условиям.** Это не подтверждает отсутствие рисков.\n\nПо профилю и методологии стоит уточнить границы нового процесса и проверить зависимость от поставщиков. При необходимости откройте форму регистрации события в НОРМ.'
     : scenario === 'subagent' ? '**Методолог завершил проверку.** Для оценки риска сбоя поставок нужны вероятность, влияние и действующие контроли.\n\n1. Проверьте концентрацию поставщиков.\n2. Уточните запас критичных комплектующих.\n3. Назначьте владельца резервного плана.\n\nРеестр содержит два релевантных риска. Подробности работы эксперта доступны выше.'
     : '**Проверка завершена.** В демонстрационном реестре найдено два операционных риска: сбой поставок и простой оборудования.\n\nРекомендую начать с резервного поставщика и контроля критичных запасов. Оценку вероятности и влияния следует уточнить с владельцами процессов.\n\nИсточники: данные компании, методолог и реестр рисков.';
-  return {events, answer};
+  return {events, backendSteps, answer};
 }
