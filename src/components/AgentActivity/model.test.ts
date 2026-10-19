@@ -43,4 +43,10 @@ describe('UI run protocol', () => {
     ]}));
     expect(run.currentActivity).toBe('Формирую ответ…');
   });
+  it('summarizes backend text steps without inventing source-call counts', () => {
+    let run = createRun('run', 'request', 0);
+    run = appendEvent(run, event('step', 'message', {label: 'Посмотрел профиль компании'}));
+    run = appendEvent(run, event('finish', 'finish', {at: 2000}));
+    expect(runSummary(run)).toBe('Ответ готов');
+  });
 });

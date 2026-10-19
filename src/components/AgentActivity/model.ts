@@ -83,5 +83,5 @@ export function runSummary(run: AgentRun): string {
   const successful = sources.filter(source => source.status === 'success').length;
   const incomplete = sources.length - successful;
   const experts = run.events.filter(event => event.kind === 'delegation').length;
-  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'} · источников: ${successful}/${sources.length}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}${experts ? ` · экспертов: ${experts}` : ''}`;
+  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}${experts ? ` · экспертов: ${experts}` : ''}`;
 }

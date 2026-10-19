@@ -83,20 +83,19 @@ function App() {
     const base: IMessage = {id:responseId, requestId, role:ERoles.bot, timeCreated:new Date(startedAt + 1).toISOString()}; const resultExtras = id === 'rich' ? {fileIds:'["demo-report"]', chart} : undefined;
     if (!instant) addMessageAction(ctx, {...base, text:'', extras:{agentPending:'true'}});
     const finish = () => {
-      if (events.length) {
-        run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:startedAt + 10_000, kind:'finish'});
+      const completedAt = Date.now();
+      // The current backend sends service texts only after /ainvoke completes.
+      // Put those exact texts into the activity trace in one update, not chat bubbles.
+      backendSteps.forEach((label, index) => {
+        run = appendEvent(run, {id:`${responseId}-backend-${index}`, runId:responseId, at:completedAt + index, kind:'message', label});
+      });
+      if (events.length || backendSteps.length) {
+        run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:completedAt + backendSteps.length, kind:'finish'});
         updateRun();
       }
       isLoadingAtom(ctx, false);
-      // norm_chat.py returns service replies and the answer in one callback after /ainvoke.
-      const completedAt = Date.now();
-      backendSteps.forEach((text, index) => addMessageAction(ctx, {
-        id:`${responseId}-step-${index}`, requestId, role:ERoles.bot, text,
-        timeCreated:new Date(completedAt + index).toISOString(), extras:{type:'system'},
-      }));
       addMessageAction(ctx, {
-        ...base, timeCreated:backendSteps.length ? new Date(completedAt + backendSteps.length).toISOString() : base.timeCreated,
-        text:answer, extras:resultExtras as IMessage['extras'],
+        ...base, text:answer, extras:resultExtras as IMessage['extras'],
       });
       setPlaying(false);
       queueMicrotask(storeCurrent);

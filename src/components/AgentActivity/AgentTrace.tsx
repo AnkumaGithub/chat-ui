@@ -12,7 +12,7 @@ const iconByKind: Record<AgentEvent['kind'], EIconName> = {
 
 function TraceSteps({ run, parent }: { run: AgentRun; parent?: string }) {
   return <ol className={classes.trace}>
-    {run.events.filter(event => event.parentCallId === parent).map(event => <li key={event.id} className={classes.step} data-kind={event.kind} data-active={run.status === 'running' && event.id === run.events.at(-1)?.id} tabIndex={0}>
+    {run.events.filter(event => event.kind !== 'finish' && event.parentCallId === parent).map(event => <li key={event.id} className={classes.step} data-kind={event.kind} data-active={run.status === 'running' && event.id === run.events.at(-1)?.id} tabIndex={0}>
       <div className={classes.stepHeader}><Icon className={classes.marker} name={iconByKind[event.kind]} width={16} height={16}/><strong>{run.status === 'running' && event.id === run.events.at(-1)?.id ? run.currentActivity : event.label || names[event.kind]}</strong></div>
       {(event.source || event.tool) && <div className={classes.meta}>{event.source}{event.source && event.tool ? ' · ' : ''}<code>{event.tool}</code></div>}
       {event.text && event.kind !== 'toolResult' && <p>{event.text}</p>}
