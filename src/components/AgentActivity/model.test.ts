@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appendEvent, createRun, runSummary, sourcesForRun, type AgentEvent } from './model';
+import { appendEvent, createRun, runSummary, sourceName, sourcesForRun, type AgentEvent } from './model';
 const event = (id: string, kind: AgentEvent['kind'], extra: Partial<AgentEvent> = {}): AgentEvent => ({ id, kind, runId: 'run', at: 1000, ...extra });
 describe('UI run protocol', () => {
   it('isolates runs and deduplicates reconnect replay', () => {
@@ -48,5 +48,10 @@ describe('UI run protocol', () => {
     run = appendEvent(run, event('step', 'message', {label: 'Посмотрел профиль компании'}));
     run = appendEvent(run, event('finish', 'finish', {at: 2000}));
     expect(runSummary(run)).toBe('Ответ готов');
+  });
+  it('names sources by role instead of raw tool ids', () => {
+    expect(sourceName({tool: 'get_company_profile', source: 'Данные компании'})).toBe('Профайлер');
+    expect(sourceName({tool: 'create_incident'})).toBe('Зарегистрировать меру');
+    expect(sourceName({tool: 'task', source: 'Методолог'})).toBe('Методолог');
   });
 });

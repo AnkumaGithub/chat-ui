@@ -32,13 +32,29 @@ export const activeLabels: Record<string, string> = {
   profiler_search: 'Изучаю профиль компании…',
   ask_analyst: 'Подключаю аналитика…',
   get_company_fin_indicators: 'Проверяю финансовые показатели…',
+  get_company_laws: 'Смотрю законы компании…',
   task: 'Подключаю профильного эксперта…',
   write_todos: 'Составляю план проверки…',
   get_incident_form: 'Готовлю форму события…',
   create_incident: 'Обращаюсь к регистрации события…',
 };
+/** Human names for tools: the trace shows who was asked, not the raw tool id. */
+export const toolNames: Record<string, string> = {
+  get_company_profile: 'Профайлер',
+  profiler_search: 'Профайлер',
+  ask_methodologist: 'Методолог',
+  ask_analyst: 'Аналитик',
+  get_company_fin_indicators: 'Аналитик',
+  get_company_laws: 'Законы',
+  get_company_risks: 'Реестр рисков',
+  get_incident_form: 'Зарегистрировать меру',
+  create_incident: 'Зарегистрировать меру',
+};
+export function sourceName(event: Pick<AgentEvent, 'tool' | 'source'>): string {
+  return toolNames[event.tool || ''] || event.source || 'Источник';
+}
 export function createRun(runId: string, requestId: string, startedAt: number): AgentRun {
-  return { runId, requestId, startedAt, currentActivity: 'Начинаю проверку…', status: 'running', events: [] };
+  return { runId, requestId, startedAt, currentActivity: 'Думаю', status: 'running', events: [] };
 }
 export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
   // A reconnect replay must not duplicate events or reopen a completed run.
@@ -62,7 +78,7 @@ export function sourcesForRun(run: AgentRun): SourceState[] {
   const calls = new Map<string, { name: string; status: SourceState['status'] }>();
   for (const event of run.events) {
     if (!event.callId) continue;
-    if (event.kind === 'toolCall' && event.source) calls.set(event.callId, {name: event.source, status: 'running'});
+    if (event.kind === 'toolCall' && (event.source || event.tool)) calls.set(event.callId, {name: sourceName(event), status: 'running'});
     const call = calls.get(event.callId);
     if (call && ['toolResult', 'empty', 'error'].includes(event.kind)) {
       call.status = event.kind === 'toolResult' ? 'success' : event.kind as 'empty' | 'error';
