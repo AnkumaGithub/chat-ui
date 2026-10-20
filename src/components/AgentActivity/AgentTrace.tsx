@@ -16,8 +16,9 @@ function TraceSteps({ run, parent }: { run: AgentRun; parent?: string }) {
   // and an unavailable/empty outcome is folded into the same step.
   const callIds = new Set(run.events.filter(event => event.kind === 'toolCall').map(event => event.callId));
   const outcomes = new Map(run.events.filter(event => (event.kind === 'error' || event.kind === 'empty') && callIds.has(event.callId)).map(event => [event.callId, event]));
-  // Unlabeled messages are the model's intermediate replies; labeled ones are backend service steps.
-  const isVisible = (event: AgentEvent) => event.kind !== 'finish' && event.kind !== 'toolResult' && !(event.kind === 'message' && !event.label) && !(outcomes.get(event.callId) === event);
+  // Model reasoning and unlabeled messages (intermediate replies) are not shown to the user;
+  // labeled messages are backend service steps.
+  const isVisible = (event: AgentEvent) => event.kind !== 'finish' && event.kind !== 'toolResult' && event.kind !== 'thinking' && !(event.kind === 'message' && !event.label) && !(outcomes.get(event.callId) === event);
   const activeId = run.status === 'running' ? run.events.filter(isVisible).at(-1)?.id : undefined;
   return <ol className={classes.trace}>
     {run.events.filter(event => isVisible(event) && event.parentCallId === parent).map(item => {

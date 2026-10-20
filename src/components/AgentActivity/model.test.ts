@@ -54,4 +54,11 @@ describe('UI run protocol', () => {
     expect(sourceName({tool: 'create_incident'})).toBe('Зарегистрировать меру');
     expect(sourceName({tool: 'task', source: 'Методолог'})).toBe('Методолог');
   });
+  it('returns to thinking once a source has answered', () => {
+    let run = createRun('run', 'request', 0);
+    run = appendEvent(run, event('a', 'toolCall', {callId: '1', tool: 'get_company_risks'}));
+    expect(run.currentActivity).toBe('Сверяю с реестром рисков…');
+    run = appendEvent(run, event('b', 'toolResult', {callId: '1'}));
+    expect(run.currentActivity).toBe('Думаю');
+  });
 });

@@ -22,10 +22,8 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
   if (scenario === 'finalOnly') return {events, backendSteps, answer: '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'};
   if (scenario === 'backendCallback') {
     // Exact service texts from api/norm_chat.py and tests/unit/test_norm_chat.py.
-    // The plan's todo contents are the backend test fixture, not fixed agent phrases.
     // The combination/order is illustrative; this pilot does not call the backend.
     backendSteps.push(
-      'План:\n✓ Уточнить требования\n→ Собрать данные\n• Ответить',
       'Посмотрел профиль компании',
       'Подключил профильного помощника',
       'Спросил методолога',
@@ -34,8 +32,6 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     return {events, backendSteps, answer: '**Демонстрационный итоговый ответ.** Его содержание в настоящем запросе генерирует модель; фиксированных текстов ответа в бэкенде нет.'};
   }
   const add = (kind: AgentEvent['kind'], data: Partial<AgentEvent> = {}) => events.push({id: `${runId}-${events.length}`, runId, at: start + (events.length + 1) * 700, kind, ...data});
-  add('plan', {tool: 'write_todos', todos: [{content:'Проверить данные компании', status:'in_progress'}, {content:'Свериться с методологией и реестром', status:'pending'}, {content:'Подготовить ответ', status:'pending'}]});
-  add('thinking', {text: 'Сначала проверю профиль компании, затем сопоставлю его с методологией и реестром. Демонстрационный шаг.'});
   add('toolCall', {callId:'profile', tool:'get_company_profile', source:'Профайлер', args:{company_id:'demo-company', sections:['activities', 'operations']}});
   add('toolResult', {callId:'profile', tool:'get_company_profile', source:'Профайлер', result:{company:'Демо-компания', industry:'Производство', locations:3, key_process:'Поставки комплектующих'}});
   if (scenario === 'subagent') {
@@ -65,7 +61,6 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     add('toolCall', {callId:'finance', tool:'get_company_fin_indicators', source:'Аналитик', args:{company_id:'demo-company', period:'2025-Q1-Q2'}});
     add('toolResult', {callId:'finance', tool:'get_company_fin_indicators', source:'Аналитик', result:chart.data});
   }
-  add('plan', {tool:'write_todos', todos:[{content:'Проверить данные компании',status:'completed'},{content:scenario === 'error' ? 'Зафиксировать недоступность реестра' : 'Зафиксировать результаты источников',status:'completed'},{content:'Подготовить ответ',status:'completed'}]});
   const answer = scenario === 'rich' ? 'Вот потери по месяцам. Все значения демонстрационные, в тыс. ₽.\n\n| Месяц | Прямые потери | Косвенные потери |\n| --- | ---: | ---: |\n| Январь | 410 | 415 |\n| Февраль | 400 | 810 |\n| Март | 210 | 180 |\n| Апрель | 190 | 490 |\n\nСамые высокие совокупные потери — в феврале. Рекомендую проверить причины отклонения и действующие контроли.'
     : scenario === 'registration' ? '**Событие можно зарегистрировать в НОРМ.** Я подготовил контекст по компании и помогу перенести его в форму. Кнопка «Открыть форму» доступна только в этом диалоге.'
     : scenario === 'ordinary' ? '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'

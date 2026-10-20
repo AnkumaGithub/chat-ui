@@ -66,6 +66,7 @@ export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
   }
   const currentActivity = event.kind === 'toolCall' || event.kind === 'delegation'
     ? event.label || activeLabels[event.tool || ''] || 'Проверяю источник…'
+    : event.kind === 'toolResult' ? 'Думаю'
     : event.kind === 'error' ? 'Продолжаю с доступными источниками…'
     : event.kind === 'empty' ? 'Уточняю по другим источникам…'
     : event.kind === 'handback' ? 'Собираю итоговый ответ…'
