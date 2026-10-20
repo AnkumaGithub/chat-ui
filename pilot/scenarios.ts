@@ -43,7 +43,7 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
   // Orchestrator reasoning streams in as small chunks; a model without reasoning (or a lost one) produces none.
   const think = (text: string) => {
     if (scenario === 'noReasoning') return;
-    (text.match(/\S+(?:\s+\S+)?\s*/g) || []).forEach((chunk, index) => add('thinking', {text: chunk}, index ? 110 : 700));
+    (text.match(/\S+(?:\s+\S+)?\s*/g) || []).forEach((chunk, index) => add('thinking', {text: chunk}, index ? 300 : 700));
   };
   if (scenario === 'parallel') {
     // One model turn asks two sources at once: both calls are open together, the reasoning goes with the first.
