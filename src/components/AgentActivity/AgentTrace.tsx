@@ -13,7 +13,7 @@ const iconByKind: Record<AgentEvent['kind'], EIconName> = {
 
 const outcomeSuffix = { error: ' — недоступен', empty: ' — нет данных' };
 
-type Step = { event: AgentEvent; reasoning: string[] };
+type Step = { event: AgentEvent; reasoning: string };
 
 /** A step with the orchestrator reasoning that led to it, collapsed behind a chevron. */
 function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now }: { run: AgentRun; step: Step; outcome?: AgentEvent; active: boolean; now: number }) {
@@ -29,12 +29,12 @@ function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now
     : null;
   const header = <><Icon className={classes.marker} name={iconByKind[event.kind]} width={16} height={16}/><strong>{title}</strong>{duration && <small className={classes.duration}>{duration}</small>}</>;
   return <li className={classes.step} data-kind={event.kind} data-active={active}>
-    {reasoning.length
+    {reasoning
       ? <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`${title}: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={() => setExpanded(value => !value)}>
           {header}<Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>
         </button>
       : <div className={classes.stepHeader} tabIndex={0}>{header}</div>}
-    {expanded && reasoning.map((text, index) => <p key={index}>{text}</p>)}
+    {expanded && <p>{reasoning}</p>}
     {bulletItems ? <ul className={classes.backendPlan}>{bulletItems.map((line, index) => <li key={`${index}-${line}`}>{line}</li>)}</ul>
       : event.text && <p>{event.text}</p>}
     {event.todos && <ul className={classes.plan}>{event.todos.map((todo, index) => <li key={`${index}-${todo.content}`} data-status={todo.status}><span>{todo.content}</span><small>{marks[todo.status]}</small></li>)}</ul>}
@@ -50,21 +50,27 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
   const outcomes = new Map(steps.filter(event => (event.kind === 'error' || event.kind === 'empty') && callIds.has(event.callId)).map(event => [event.callId, event]));
   // Unlabeled messages are the model's intermediate replies; labeled ones are backend service steps.
   const visible = steps.filter(event => event.kind !== 'finish' && event.kind !== 'toolResult' && !(event.kind === 'message' && !event.label) && outcomes.get(event.callId) !== event);
-  // Reasoning is not a step of its own: it belongs to the step it led to.
-  // Reasoning after the last step (before the answer) has no step to belong to and is not shown.
+  // Reasoning is not a step of its own: it streams in as text chunks and belongs to the step it led to.
+  // While no step follows yet, it is shown live at the end; after the run, reasoning that led to
+  // no step (the one before the answer) is not shown.
   const grouped: Step[] = [];
-  let reasoning: string[] = [];
+  let reasoning = '';
   for (const event of visible) {
-    if (event.kind === 'thinking') { if (event.text) reasoning.push(event.text); continue; }
+    if (event.kind === 'thinking') { reasoning += event.text || ''; continue; }
     grouped.push({event, reasoning});
-    reasoning = [];
+    reasoning = '';
   }
-  // Every open call is active (parallel calls run together); between calls, the last step is.
+  const liveReasoning = run.status === 'running' && reasoning ? reasoning : '';
+  // Every open call is active (parallel calls run together); between calls, the live reasoning or the last step is.
   const open = openCalls(run);
-  const activeIds = new Set(open.length ? open.map(event => event.id) : run.status === 'running' ? [grouped.at(-1)?.event.id] : []);
+  const activeIds = new Set(open.length ? open.map(event => event.id) : run.status === 'running' && !liveReasoning ? [grouped.at(-1)?.event.id] : []);
   return <ol className={classes.trace}>
     {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={activeIds.has(step.event.id)}
       outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined}/>)}
+    {liveReasoning && <li className={classes.step} data-kind="thinking" data-active={!open.length}>
+      <div className={classes.stepHeader}><Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>Думаю</strong></div>
+      <p>{liveReasoning}</p>
+    </li>}
   </ol>;
 }
 

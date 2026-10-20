@@ -65,9 +65,12 @@ export function openCalls(run: AgentRun): AgentEvent[] {
   return run.events.filter(event => (event.kind === 'toolCall' || event.kind === 'delegation') && event.callId && !event.parentCallId
     && !run.events.some(other => other !== event && other.callId === event.callId && callEnds.includes(other.kind)));
 }
-export const formatDuration = (ms: number) => ms < 1000 ? '<1 с' : `${Math.round(ms / 1000)} с`;
+// Whole seconds, like a stopwatch: 0, 1, 2… — no «<1 с» that flickers on short calls.
+export const formatDuration = (ms: number) => `${Math.max(0, Math.floor(ms / 1000))} с`;
+/** «Думаю» only once the orchestrator actually reasons; a model without reasoning is just preparing the answer. */
+const idleActivity = (events: AgentEvent[]) => events.some(event => event.kind === 'thinking' && !event.parentCallId) ? 'Думаю' : 'Готовлю ответ…';
 export function createRun(runId: string, requestId: string, startedAt: number): AgentRun {
-  return { runId, requestId, startedAt, currentActivity: 'Думаю', status: 'running', events: [] };
+  return { runId, requestId, startedAt, currentActivity: idleActivity([]), status: 'running', events: [] };
 }
 export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
   // A reconnect replay must not duplicate events or reopen a completed run.
@@ -86,7 +89,7 @@ export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
     : event.kind === 'empty' ? 'Уточняю по другим источникам…'
     : event.kind === 'plan' ? (event.todos?.every(todo => todo.status === 'completed') ? 'Формирую ответ…' : 'Составляю план проверки…')
     : event.kind === 'message' ? run.currentActivity
-    : 'Думаю';
+    : idleActivity(events);
   return { ...run, events, currentActivity };
 }
 export function runSummary(run: AgentRun): string {

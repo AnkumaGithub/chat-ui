@@ -51,12 +51,21 @@ describe('UI run protocol', () => {
     expect(sourceName({tool: 'create_incident'})).toBe('Зарегистрировать меру');
     expect(sourceName({tool: 'task', source: 'Методолог'})).toBe('Методолог');
   });
-  it('returns to thinking once a source has answered', () => {
+  it('between calls says «Думаю» only for a model that reasons', () => {
     let run = createRun('run', 'request', 0);
+    expect(run.currentActivity).toBe('Готовлю ответ…');
     run = appendEvent(run, event('a', 'toolCall', {callId: '1', tool: 'get_company_risks'}));
     expect(run.currentActivity).toBe('Сверяю с реестром рисков…');
     run = appendEvent(run, event('b', 'toolResult', {callId: '1'}));
+    expect(run.currentActivity).toBe('Готовлю ответ…');
+    run = appendEvent(run, event('c', 'thinking', {text: 'Реестр проверен.'}));
     expect(run.currentActivity).toBe('Думаю');
+    // An expert's reasoning does not count as the orchestrator reasoning.
+    expect(appendEvent(createRun('run', 'request', 0), event('e', 'thinking', {parentCallId: 'expert'})).currentActivity).toBe('Готовлю ответ…');
+  });
+  it('formats durations as whole seconds without «<1 с»', () => {
+    expect(formatDuration(400)).toBe('0 с');
+    expect(formatDuration(1900)).toBe('1 с');
   });
   it('times each source call and keeps counting only while it is open', () => {
     let run = createRun('run', 'request', 0);
@@ -85,7 +94,7 @@ describe('UI run protocol', () => {
     expect(run.currentActivity).toBe('Подключаю методолога…');
     expect(openCalls(run)).toEqual([expert]);
     run = appendEvent(run, event('d', 'handback', {parentCallId: 'expert', callId: 'expert', at: 8000}));
-    expect(run.currentActivity).toBe('Думаю');
+    expect(run.currentActivity).toBe('Готовлю ответ…');
     expect(callDuration(run, expert)).toBe(7000);
   });
   it('keeps naming the remaining source when one of two parallel calls answers', () => {
@@ -96,6 +105,6 @@ describe('UI run protocol', () => {
     run = appendEvent(run, event('c', 'toolResult', {callId: '1'}));
     expect(run.currentActivity).toBe('Сверяю с реестром рисков…');
     run = appendEvent(run, event('d', 'toolResult', {callId: '2'}));
-    expect(run.currentActivity).toBe('Думаю');
+    expect(run.currentActivity).toBe('Готовлю ответ…');
   });
 });
