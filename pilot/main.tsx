@@ -91,7 +91,7 @@ function App() {
         run = appendEvent(run, {id:`${responseId}-backend-${index}`, runId:responseId, at:completedAt + index, kind:'message', label, text:lines.join('\n') || undefined});
       });
       if (events.length || backendSteps.length) {
-        run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:completedAt + backendSteps.length, kind:'finish'});
+        run = appendEvent(run, {id:`${responseId}-finish`, runId:responseId, at:Math.max(completedAt, events.length ? events[events.length - 1].at + 1500 : 0) + backendSteps.length, kind:'finish'});
         updateRun();
       }
       isLoadingAtom(ctx, false);
