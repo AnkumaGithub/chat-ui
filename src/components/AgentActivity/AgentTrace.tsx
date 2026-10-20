@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { EIconName, Icon } from '@sber-orm/ui-kit';
 import { type AgentEvent, type AgentRun, callDuration, formatDuration, openCall, runSummary, sourceName } from './model';
 import { useNow } from './useNow';
 import classes from './styles.module.scss';
 const names: Record<AgentEvent['kind'], string> = {
-  thinking: 'Обдумывание', message: 'Промежуточная реплика', plan: 'План', toolCall: 'Вызов источника', toolResult: 'Результат', delegation: 'Делегирование', handback: 'Возврат эксперта', error: 'Ошибка источника', empty: 'Ничего не найдено', finish: 'Завершено',
+  thinking: 'Рассуждение', message: 'Промежуточная реплика', plan: 'План', toolCall: 'Вызов источника', toolResult: 'Результат', delegation: 'Делегирование', handback: 'Возврат эксперта', error: 'Ошибка источника', empty: 'Ничего не найдено', finish: 'Завершено',
 };
 const marks = { pending: 'Ожидает', in_progress: 'В работе', completed: 'Готово' };
 const iconByKind: Record<AgentEvent['kind'], EIconName> = {
@@ -12,17 +13,31 @@ const iconByKind: Record<AgentEvent['kind'], EIconName> = {
 
 const outcomeSuffix = { error: ' — недоступен', empty: ' — нет данных' };
 
-function TraceSteps({ run, parent, now }: { run: AgentRun; parent?: string; now: number }) {
+/** Orchestrator reasoning: collapsed to its title until the user opens it. */
+function ReasoningStep({ event, active }: { event: AgentEvent; active: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  return <li className={classes.step} data-kind={event.kind} data-active={active}>
+    <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+      <Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>{names.thinking}</strong>
+      <Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>
+    </button>
+    {expanded && event.text && <p>{event.text}</p>}
+  </li>;
+}
+
+function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
+  // Only the orchestrator level is shown: an expert is one step, its own calls and reasoning stay inside.
   // A call step only says which source was asked: its result is not repeated,
   // and an unavailable/empty outcome is folded into the same step.
-  const callIds = new Set(run.events.filter(event => event.kind === 'toolCall').map(event => event.callId));
-  const outcomes = new Map(run.events.filter(event => (event.kind === 'error' || event.kind === 'empty') && callIds.has(event.callId)).map(event => [event.callId, event]));
-  // Reasoning is shown for the orchestrator only, never inside a subagent.
+  const steps = run.events.filter(event => !event.parentCallId);
+  const callIds = new Set(steps.filter(event => event.kind === 'toolCall').map(event => event.callId));
+  const outcomes = new Map(steps.filter(event => (event.kind === 'error' || event.kind === 'empty') && callIds.has(event.callId)).map(event => [event.callId, event]));
   // Unlabeled messages are the model's intermediate replies; labeled ones are backend service steps.
-  const isVisible = (event: AgentEvent) => event.kind !== 'finish' && event.kind !== 'toolResult' && !(event.kind === 'thinking' && event.parentCallId) && !(event.kind === 'message' && !event.label) && !(outcomes.get(event.callId) === event);
-  const activeId = run.status === 'running' ? run.events.filter(isVisible).at(-1)?.id : undefined;
+  const visible = steps.filter(event => event.kind !== 'finish' && event.kind !== 'toolResult' && !(event.kind === 'message' && !event.label) && outcomes.get(event.callId) !== event);
+  const activeId = run.status === 'running' ? visible.at(-1)?.id : undefined;
   return <ol className={classes.trace}>
-    {run.events.filter(event => isVisible(event) && event.parentCallId === parent).map(item => {
+    {visible.map(item => {
+      if (item.kind === 'thinking') return <ReasoningStep key={item.id} event={item} active={item.id === activeId}/>;
       const outcome = item.kind === 'toolCall' ? outcomes.get(item.callId) : undefined;
       const event = outcome ? {...item, kind: outcome.kind, text: outcome.text} : item;
       const title = event.kind === 'toolCall' || event.kind === 'delegation' ? sourceName(event)
@@ -34,11 +49,10 @@ function TraceSteps({ run, parent, now }: { run: AgentRun; parent?: string; now:
         ? lines.map(line => line.replace(/^[✓→•]\s+/, ''))
         : null;
       return <li key={event.id} className={classes.step} data-kind={event.kind} data-active={event.id === activeId} tabIndex={0}>
-      <div className={classes.stepHeader}><Icon className={classes.marker} name={iconByKind[event.kind]} width={16} height={16}/><strong>{event.id === activeId ? run.currentActivity : title}</strong>{duration && <small className={classes.duration}>{duration}</small>}</div>
-      {bulletItems ? <ul className={classes.backendPlan}>{bulletItems.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
+      <div className={classes.stepHeader}><Icon className={classes.marker} name={iconByKind[event.kind]} width={16} height={16}/><strong>{title}</strong>{duration && <small className={classes.duration}>{duration}</small>}</div>
+      {bulletItems ? <ul className={classes.backendPlan}>{bulletItems.map((line, index) => <li key={`${index}-${line}`}>{line}</li>)}</ul>
         : event.text && <p>{event.text}</p>}
       {event.todos && <ul className={classes.plan}>{event.todos.map((todo, index) => <li key={`${index}-${todo.content}`} data-status={todo.status}><span>{todo.content}</span><small>{marks[todo.status]}</small></li>)}</ul>}
-      {event.kind === 'delegation' && event.callId && <TraceSteps run={run} parent={event.callId} now={now}/>}
     </li>})}
   </ol>;
 }

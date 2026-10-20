@@ -59,10 +59,10 @@ export function callDuration(run: AgentRun, call: AgentEvent, now = Date.now()):
   const end = run.events.find(event => event !== call && event.callId === call.callId && callEnds.includes(event.kind));
   return (end?.at ?? run.finishedAt ?? now) - call.at;
 }
-/** The source or expert call the run is waiting for right now, if any. */
+/** The orchestrator-level source or expert call the run is waiting for right now, if any. */
 export function openCall(run: AgentRun): AgentEvent | undefined {
   if (run.status !== 'running') return undefined;
-  return run.events.filter(event => (event.kind === 'toolCall' || event.kind === 'delegation') && event.callId
+  return run.events.filter(event => (event.kind === 'toolCall' || event.kind === 'delegation') && event.callId && !event.parentCallId
     && !run.events.some(other => other !== event && other.callId === event.callId && callEnds.includes(other.kind))).at(-1);
 }
 export const formatDuration = (ms: number) => ms < 1000 ? '<1 с' : `${Math.round(ms / 1000)} с`;
@@ -77,25 +77,27 @@ export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
     const status = event.fatal ? 'failed' : 'done';
     return { ...run, events, status, finishedAt: event.at, currentActivity: status === 'failed' ? 'Не удалось завершить ответ' : 'Ответ готов' };
   }
-  const currentActivity = event.kind === 'toolCall' || event.kind === 'delegation'
+  // Work inside an expert stays inside: the activity keeps naming the expert until it hands back.
+  const currentActivity = event.parentCallId && event.kind !== 'handback' ? run.currentActivity
+    : event.kind === 'toolCall' || event.kind === 'delegation'
     ? event.label || activeLabels[event.tool || ''] || 'Проверяю источник…'
-    : event.kind === 'toolResult' ? 'Думаю'
+    : event.kind === 'toolResult' || event.kind === 'thinking' || event.kind === 'handback' ? 'Думаю'
     : event.kind === 'error' ? 'Продолжаю с доступными источниками…'
     : event.kind === 'empty' ? 'Уточняю по другим источникам…'
-    : event.kind === 'handback' ? 'Собираю итоговый ответ…'
     : event.kind === 'plan' ? (event.todos?.every(todo => todo.status === 'completed') ? 'Формирую ответ…' : 'Составляю план проверки…')
     : run.currentActivity;
   return { ...run, events, currentActivity };
 }
 export type SourceState = { name: string; status: 'running' | 'success' | 'empty' | 'error'; calls: number };
+/** Sources and experts the orchestrator asked; an expert's own calls are not counted separately. */
 export function sourcesForRun(run: AgentRun): SourceState[] {
   const calls = new Map<string, { name: string; status: SourceState['status'] }>();
   for (const event of run.events) {
     if (!event.callId) continue;
-    if (event.kind === 'toolCall' && (event.source || event.tool)) calls.set(event.callId, {name: sourceName(event), status: 'running'});
+    if ((event.kind === 'toolCall' || event.kind === 'delegation') && !event.parentCallId && (event.source || event.tool)) calls.set(event.callId, {name: sourceName(event), status: 'running'});
     const call = calls.get(event.callId);
-    if (call && ['toolResult', 'empty', 'error'].includes(event.kind)) {
-      call.status = event.kind === 'toolResult' ? 'success' : event.kind as 'empty' | 'error';
+    if (call && ['toolResult', 'handback', 'empty', 'error'].includes(event.kind)) {
+      call.status = event.kind === 'toolResult' || event.kind === 'handback' ? 'success' : event.kind as 'empty' | 'error';
     }
   }
   const sources = new Map<string, SourceState>();
@@ -112,6 +114,5 @@ export function runSummary(run: AgentRun): string {
   const sources = sourcesForRun(run);
   const successful = sources.filter(source => source.status === 'success').length;
   const incomplete = sources.length - successful;
-  const experts = run.events.filter(event => event.kind === 'delegation').length;
-  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${run.finishedAt ? ` за ${formatDuration(run.finishedAt - run.startedAt)}` : ''}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}${experts ? ` · экспертов: ${experts}` : ''}`;
+  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${run.finishedAt ? ` за ${formatDuration(run.finishedAt - run.startedAt)}` : ''}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}`;
 }

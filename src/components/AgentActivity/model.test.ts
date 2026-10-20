@@ -79,4 +79,17 @@ describe('UI run protocol', () => {
     expect(openCall(run)).toBeUndefined();
     expect(callDuration(run, call, 60_000)).toBe(7000);
   });
+  it('keeps an expert as one step: its own calls change neither activity nor source count', () => {
+    let run = createRun('run', 'request', 0);
+    const expert = event('a', 'delegation', {callId: 'expert', tool: 'task', source: 'Методолог', label: 'Подключаю методолога…', at: 1000});
+    run = appendEvent(run, expert);
+    run = appendEvent(run, event('b', 'toolCall', {parentCallId: 'expert', callId: 'm', tool: 'ask_methodologist', at: 2000}));
+    run = appendEvent(run, event('c', 'toolResult', {parentCallId: 'expert', callId: 'm', at: 5000}));
+    expect(run.currentActivity).toBe('Подключаю методолога…');
+    expect(openCall(run)).toBe(expert);
+    run = appendEvent(run, event('d', 'handback', {parentCallId: 'expert', callId: 'expert', at: 8000}));
+    expect(run.currentActivity).toBe('Думаю');
+    expect(callDuration(run, expert)).toBe(7000);
+    expect(sourcesForRun(run)).toEqual([{name: 'Методолог', status: 'success', calls: 1}]);
+  });
 });

@@ -38,9 +38,12 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     clock += kind === 'error' ? 5000 : kind === 'toolResult' || kind === 'empty' ? answerTime[data.tool || ''] ?? 2000 : 700;
     events.push({id: `${runId}-${events.length}`, runId, at: clock, kind, ...data});
   };
-  add('thinking', {text: 'Сначала проверю профиль компании, затем сопоставлю его с методологией и реестром. Демонстрационный шаг.'});
+  add('thinking', {text: 'Вопрос про операционные риски компании. Начну с профиля: чем компания занимается и какие у неё ключевые процессы.'});
   add('toolCall', {callId:'profile', tool:'get_company_profile', source:'Профайлер', args:{company_id:'demo-company', sections:['activities', 'operations']}});
   add('toolResult', {callId:'profile', tool:'get_company_profile', source:'Профайлер', result:{company:'Демо-компания', industry:'Производство', locations:3, key_process:'Поставки комплектующих'}});
+  add('thinking', {text: scenario === 'subagent'
+    ? 'Ключевой процесс — поставки комплектующих. Как оценивать риск сбоя поставок, лучше спросить методолога.'
+    : 'Ключевой процесс — поставки комплектующих. Чтобы оценить риски, нужны критерии из методологии.'});
   if (scenario === 'subagent') {
     add('delegation', {callId:'expert', tool:'task', label:'Подключаю методолога…', source:'Методолог', args:{subagent_type:'methodologist', description:'Оценить риск сбоя поставок по методологии'}});
     add('thinking', {parentCallId:'expert', text:'Рассуждение методолога: в ленте не показывается.'});
@@ -52,23 +55,29 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     add('toolCall', {callId:'method', tool:'ask_methodologist', source:'Методолог', args:{query:'Оценка операционных рисков компании'}});
     add('toolResult', {callId:'method', tool:'ask_methodologist', source:'Методолог', result:{criteria:['Вероятность', 'Влияние'], controls:['Резервный поставщик', 'Мониторинг сроков']}});
   }
-  add('message', {text:'Профиль и методология проверены. Уточняю сведения в реестре рисков.'});
+  add('thinking', {text: 'Критерии оценки есть. Проверю, что по компании уже зарегистрировано в реестре рисков.'});
   add('toolCall', {callId:'risks', tool:'get_company_risks', source:'Реестр рисков', args:{company_id:'demo-company', risk_type:'operational', limit:10}});
   if (scenario === 'error') add('error', {callId:'risks', tool:'get_company_risks', source:'Реестр рисков', text:'Источник не ответил. Продолжу по доступным данным; сведения реестра не подтверждены.', result:{code:'SOURCE_TIMEOUT', retryable:true}});
   else if (scenario === 'empty') add('empty', {callId:'risks', tool:'get_company_risks', source:'Реестр рисков', text:'По заданным условиям записей нет. Это не означает отсутствие риска.', result:{items:[], total:0}});
   else add('toolResult', {callId:'risks', tool:'get_company_risks', source:'Реестр рисков', result:{items:[{name:'Сбой поставок', level:'Высокий'}, {name:'Простой оборудования', level:'Средний'}], total:2}});
   if (scenario === 'normal') {
+    add('thinking', {text: 'В реестре два риска. Посмотрю, какие требования законов к ним относятся.'});
     add('toolCall', {callId:'laws', tool:'get_company_laws', source:'Законы', args:{question:'Требования к управлению операционным риском'}});
     add('toolResult', {callId:'laws', tool:'get_company_laws', source:'Законы', result:{items:[{title:'Положение об управлении операционным риском'}]}});
   }
   if (scenario === 'registration') {
+    add('thinking', {text: 'Контекст по компании собран. Подготовлю форму регистрации.'});
     add('toolCall', {callId:'form', tool:'get_incident_form', source:'Зарегистрировать меру', args:{company_id:'demo-company'}});
     add('toolResult', {callId:'form', tool:'get_incident_form', source:'Зарегистрировать меру', result:{fields:['Описание', 'Дата', 'Потери']}});
   }
   if (scenario === 'rich') {
+    add('thinking', {text: 'Для таблицы и графика нужны данные о потерях по месяцам — спрошу аналитика.'});
     add('toolCall', {callId:'finance', tool:'get_company_fin_indicators', source:'Аналитик', args:{company_id:'demo-company', period:'2025-Q1-Q2'}});
     add('toolResult', {callId:'finance', tool:'get_company_fin_indicators', source:'Аналитик', result:chart.data});
   }
+  add('thinking', {text: scenario === 'error' ? 'Реестр не ответил. Соберу частичный ответ и отмечу, что данные реестра не подтверждены.'
+    : scenario === 'empty' ? 'Записей в реестре нет, но это не значит, что рисков нет. Учту это в ответе.'
+    : 'Данных достаточно, формирую ответ.'});
   const answer = scenario === 'rich' ? 'Вот потери по месяцам. Все значения демонстрационные, в тыс. ₽.\n\n| Месяц | Прямые потери | Косвенные потери |\n| --- | ---: | ---: |\n| Январь | 410 | 415 |\n| Февраль | 400 | 810 |\n| Март | 210 | 180 |\n| Апрель | 190 | 490 |\n\nСамые высокие совокупные потери — в феврале. Рекомендую проверить причины отклонения и действующие контроли.'
     : scenario === 'registration' ? '**Событие можно зарегистрировать в НОРМ.** Я подготовил контекст по компании и помогу перенести его в форму. Кнопка «Открыть форму» доступна только в этом диалоге.'
     : scenario === 'ordinary' ? '**Операционный риск** — вероятность потерь из-за ошибок процессов, людей, систем или внешних событий. Для первичной оценки определите причину, последствия, вероятность и действующие меры контроля.'
