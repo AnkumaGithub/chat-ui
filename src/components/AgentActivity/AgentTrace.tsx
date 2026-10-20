@@ -42,11 +42,12 @@ function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now
   </li>;
 }
 
-/** Live reasoning before its call has started: collapsed like the step it will fold into, so nothing jumps. */
-function LiveReasoning({ reasoning, active, expanded, onToggle }: { reasoning: string; active: boolean } & Toggle) {
+/** Reasoning not followed by a call: live «Думаю» until its call starts, or the final reasoning before the answer.
+ * Collapsed like the step it may fold into, so nothing jumps. */
+function TrailingReasoning({ reasoning, title, active, expanded, onToggle }: { reasoning: string; title: string; active: boolean } & Toggle) {
   return <li className={classes.step} data-kind="thinking" data-active={active}>
-    <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`Думаю: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={onToggle}>
-      <Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>Думаю</strong>
+    <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`${title}: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={onToggle}>
+      <Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>{title}</strong>
       <Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>
     </button>
     {expanded && <p>{reasoning}</p>}
@@ -68,8 +69,7 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
   // Unlabeled messages are the model's intermediate replies; labeled ones are backend service steps.
   const visible = steps.filter(event => event.kind !== 'finish' && event.kind !== 'toolResult' && !(event.kind === 'message' && !event.label) && outcomes.get(event.callId) !== event);
   // Reasoning is not a step of its own: it streams in as text chunks and belongs to the step it led to.
-  // While no step follows yet, it is shown live at the end; after the run, reasoning that led to
-  // no step (the one before the answer) is not shown.
+  // While no step follows yet, it is shown live at the end; the final reasoning before the answer stays there.
   const grouped: Step[] = [];
   let reasoning = '';
   let reasoningId: string | undefined;
@@ -79,14 +79,14 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
     reasoning = '';
     reasoningId = undefined;
   }
-  const liveReasoning = run.status === 'running' && reasoning ? reasoning : '';
+  const running = run.status === 'running';
   // Every open call is active (parallel calls run together); between calls, the live reasoning or the last step is.
   const open = openCalls(run);
-  const activeIds = new Set(open.length ? open.map(event => event.id) : run.status === 'running' && !liveReasoning ? [grouped.at(-1)?.event.id] : []);
+  const activeIds = new Set(open.length ? open.map(event => event.id) : running && !reasoning ? [grouped.at(-1)?.event.id] : []);
   return <ol className={classes.trace}>
     {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={activeIds.has(step.event.id)}
       outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined} {...toggle(step.reasoningId)}/>)}
-    {liveReasoning && <LiveReasoning reasoning={liveReasoning} active={!open.length} {...toggle(reasoningId)}/>}
+    {reasoning && <TrailingReasoning reasoning={reasoning} title={running ? 'Думаю' : names.thinking} active={running && !open.length} {...toggle(reasoningId)}/>}
   </ol>;
 }
 
