@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EIconName, Icon } from '@sber-orm/ui-kit';
-import { type AgentEvent, type AgentRun, callDuration, formatDuration, openCall, runSummary, sourceName } from './model';
+import { type AgentEvent, type AgentRun, callDuration, formatDuration, openCalls, runSummary, sourceName } from './model';
 import { useNow } from './useNow';
 import classes from './styles.module.scss';
 const names: Record<AgentEvent['kind'], string> = {
@@ -59,16 +59,18 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
     grouped.push({event, reasoning});
     reasoning = [];
   }
-  const activeId = run.status === 'running' ? grouped.at(-1)?.event.id : undefined;
+  // Every open call is active (parallel calls run together); between calls, the last step is.
+  const open = openCalls(run);
+  const activeIds = new Set(open.length ? open.map(event => event.id) : run.status === 'running' ? [grouped.at(-1)?.event.id] : []);
   return <ol className={classes.trace}>
-    {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={step.event.id === activeId}
+    {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={activeIds.has(step.event.id)}
       outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined}/>)}
   </ol>;
 }
 
 /** Presentation-only trace, reusable inside an inline disclosure or drawer. */
 export function AgentTrace({ run }: { run: AgentRun }) {
-  const now = useNow(!!openCall(run));
+  const now = useNow(openCalls(run).length > 0);
   return <div className={classes.traceIslands}>
     <div className={classes.traceContent}>
     <div className={classes.traceTitle}>Ход работы <span>{run.status === 'running' ? 'Выполняется сейчас' : runSummary(run)}</span></div>

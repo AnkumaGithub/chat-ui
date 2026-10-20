@@ -59,11 +59,11 @@ export function callDuration(run: AgentRun, call: AgentEvent, now = Date.now()):
   const end = run.events.find(event => event !== call && event.callId === call.callId && callEnds.includes(event.kind));
   return (end?.at ?? run.finishedAt ?? now) - call.at;
 }
-/** The orchestrator-level source or expert call the run is waiting for right now, if any. */
-export function openCall(run: AgentRun): AgentEvent | undefined {
-  if (run.status !== 'running') return undefined;
+/** Orchestrator-level source or expert calls the run is waiting for right now (several when called in parallel). */
+export function openCalls(run: AgentRun): AgentEvent[] {
+  if (run.status !== 'running') return [];
   return run.events.filter(event => (event.kind === 'toolCall' || event.kind === 'delegation') && event.callId && !event.parentCallId
-    && !run.events.some(other => other !== event && other.callId === event.callId && callEnds.includes(other.kind))).at(-1);
+    && !run.events.some(other => other !== event && other.callId === event.callId && callEnds.includes(other.kind)));
 }
 export const formatDuration = (ms: number) => ms < 1000 ? '<1 с' : `${Math.round(ms / 1000)} с`;
 export function createRun(runId: string, requestId: string, startedAt: number): AgentRun {
@@ -77,42 +77,18 @@ export function appendEvent(run: AgentRun, event: AgentEvent): AgentRun {
     const status = event.fatal ? 'failed' : 'done';
     return { ...run, events, status, finishedAt: event.at, currentActivity: status === 'failed' ? 'Не удалось завершить ответ' : 'Ответ готов' };
   }
-  // Work inside an expert stays inside: the activity keeps naming the expert until it hands back.
-  const currentActivity = event.parentCallId && event.kind !== 'handback' ? run.currentActivity
-    : event.kind === 'toolCall' || event.kind === 'delegation'
-    ? event.label || activeLabels[event.tool || ''] || 'Проверяю источник…'
-    : event.kind === 'toolResult' || event.kind === 'thinking' || event.kind === 'handback' ? 'Думаю'
+  // While sources are open the activity names them, so one parallel call answering does not hide another
+  // and an expert's own work keeps naming the expert until it hands back.
+  const open = openCalls({ ...run, events });
+  const currentActivity = open.length > 1 ? 'Проверяю несколько источников…'
+    : open.length ? open[0].label || activeLabels[open[0].tool || ''] || 'Проверяю источник…'
     : event.kind === 'error' ? 'Продолжаю с доступными источниками…'
     : event.kind === 'empty' ? 'Уточняю по другим источникам…'
     : event.kind === 'plan' ? (event.todos?.every(todo => todo.status === 'completed') ? 'Формирую ответ…' : 'Составляю план проверки…')
-    : run.currentActivity;
+    : event.kind === 'message' ? run.currentActivity
+    : 'Думаю';
   return { ...run, events, currentActivity };
 }
-export type SourceState = { name: string; status: 'running' | 'success' | 'empty' | 'error'; calls: number };
-/** Sources and experts the orchestrator asked; an expert's own calls are not counted separately. */
-export function sourcesForRun(run: AgentRun): SourceState[] {
-  const calls = new Map<string, { name: string; status: SourceState['status'] }>();
-  for (const event of run.events) {
-    if (!event.callId) continue;
-    if ((event.kind === 'toolCall' || event.kind === 'delegation') && !event.parentCallId && (event.source || event.tool)) calls.set(event.callId, {name: sourceName(event), status: 'running'});
-    const call = calls.get(event.callId);
-    if (call && ['toolResult', 'handback', 'empty', 'error'].includes(event.kind)) {
-      call.status = event.kind === 'toolResult' || event.kind === 'handback' ? 'success' : event.kind as 'empty' | 'error';
-    }
-  }
-  const sources = new Map<string, SourceState>();
-  // Any unavailable/empty call remains visible even when another call succeeded.
-  const priority = {success: 0, empty: 1, running: 2, error: 3};
-  for (const call of calls.values()) {
-    const previous = sources.get(call.name);
-    sources.set(call.name, {name: call.name, calls: (previous?.calls || 0) + 1,
-      status: previous && priority[previous.status] > priority[call.status] ? previous.status : call.status});
-  }
-  return [...sources.values()];
-}
 export function runSummary(run: AgentRun): string {
-  const sources = sourcesForRun(run);
-  const successful = sources.filter(source => source.status === 'success').length;
-  const incomplete = sources.length - successful;
-  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${run.finishedAt ? ` за ${formatDuration(run.finishedAt - run.startedAt)}` : ''}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}`;
+  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${run.finishedAt ? ` за ${formatDuration(run.finishedAt - run.startedAt)}` : ''}`;
 }

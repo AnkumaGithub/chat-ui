@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appendEvent, callDuration, createRun, formatDuration, openCall, runSummary, sourceName, sourcesForRun, type AgentEvent } from './model';
+import { appendEvent, callDuration, createRun, formatDuration, openCalls, runSummary, sourceName, type AgentEvent } from './model';
 const event = (id: string, kind: AgentEvent['kind'], extra: Partial<AgentEvent> = {}): AgentEvent => ({ id, kind, runId: 'run', at: 1000, ...extra });
 describe('UI run protocol', () => {
   it('isolates runs and deduplicates reconnect replay', () => {
@@ -15,19 +15,16 @@ describe('UI run protocol', () => {
     expect(run.events[0].result).toBe(payload);
     expect(run.events[0].parentCallId).toBe('expert');
   });
-  it('keeps a source error visible after a successful call and continues the run', () => {
+  it('continues the run after a source error', () => {
     let run = createRun('run', 'request', 0);
-    for (const e of [event('a', 'toolCall', {callId: '1', source: 'Реестр'}), event('b', 'error', {callId: '1'}), event('c', 'toolCall', {callId: '2', source: 'Реестр'}), event('d', 'toolResult', {callId: '2'})]) run = appendEvent(run, e);
+    for (const e of [event('a', 'toolCall', {callId: '1', source: 'Реестр'}), event('b', 'error', {callId: '1'})]) run = appendEvent(run, e);
     expect(run.status).toBe('running');
-    expect(sourcesForRun(run)).toEqual([{name: 'Реестр', status: 'error', calls: 2}]);
-    expect(runSummary(run)).toContain('с замечаниями: 1');
+    expect(run.currentActivity).toBe('Продолжаю с доступными источниками…');
   });
-  it('distinguishes empty from error and counts only successfully checked sources', () => {
+  it('summarizes a finished run by its total time only', () => {
     let run = createRun('run', 'request', 0);
     for (const e of [event('a', 'toolCall', {callId: '1', source: 'Компания', tool: 'get_company_profile'}), event('b', 'empty', {callId: '1'}), event('c', 'finish', {at: 12000})]) run = appendEvent(run, e);
-    expect(sourcesForRun(run)[0].status).toBe('empty');
-    expect(runSummary(run)).toContain('0/1');
-    expect(runSummary(run)).toContain('Ответ готов за 12 с');
+    expect(runSummary(run)).toBe('Ответ готов за 12 с');
     expect(appendEvent(run, event('late', 'toolCall'))).toBe(run);
   });
   it('terminates on fatal error without claiming a completed answer', () => {
@@ -65,10 +62,10 @@ describe('UI run protocol', () => {
     let run = createRun('run', 'request', 0);
     const call = event('a', 'toolCall', {callId: '1', tool: 'ask_methodologist', at: 1000});
     run = appendEvent(run, call);
-    expect(openCall(run)).toBe(call);
+    expect(openCalls(run)).toEqual([call]);
     expect(formatDuration(callDuration(run, call, 13_400))).toBe('12 с');
     run = appendEvent(run, event('b', 'toolResult', {callId: '1', at: 5200}));
-    expect(openCall(run)).toBeUndefined();
+    expect(openCalls(run)).toEqual([]);
     expect(formatDuration(callDuration(run, call, 60_000))).toBe('4 с');
   });
   it('stops an open call counter when the run fails', () => {
@@ -76,20 +73,29 @@ describe('UI run protocol', () => {
     const call = event('a', 'toolCall', {callId: '1', at: 1000});
     run = appendEvent(run, call);
     run = appendEvent(run, event('b', 'error', {fatal: true, at: 8000}));
-    expect(openCall(run)).toBeUndefined();
+    expect(openCalls(run)).toEqual([]);
     expect(callDuration(run, call, 60_000)).toBe(7000);
   });
-  it('keeps an expert as one step: its own calls change neither activity nor source count', () => {
+  it('keeps an expert as one step: its own calls do not change the activity', () => {
     let run = createRun('run', 'request', 0);
     const expert = event('a', 'delegation', {callId: 'expert', tool: 'task', source: 'Методолог', label: 'Подключаю методолога…', at: 1000});
     run = appendEvent(run, expert);
     run = appendEvent(run, event('b', 'toolCall', {parentCallId: 'expert', callId: 'm', tool: 'ask_methodologist', at: 2000}));
     run = appendEvent(run, event('c', 'toolResult', {parentCallId: 'expert', callId: 'm', at: 5000}));
     expect(run.currentActivity).toBe('Подключаю методолога…');
-    expect(openCall(run)).toBe(expert);
+    expect(openCalls(run)).toEqual([expert]);
     run = appendEvent(run, event('d', 'handback', {parentCallId: 'expert', callId: 'expert', at: 8000}));
     expect(run.currentActivity).toBe('Думаю');
     expect(callDuration(run, expert)).toBe(7000);
-    expect(sourcesForRun(run)).toEqual([{name: 'Методолог', status: 'success', calls: 1}]);
+  });
+  it('keeps naming the remaining source when one of two parallel calls answers', () => {
+    let run = createRun('run', 'request', 0);
+    run = appendEvent(run, event('a', 'toolCall', {callId: '1', tool: 'get_company_profile'}));
+    run = appendEvent(run, event('b', 'toolCall', {callId: '2', tool: 'get_company_risks'}));
+    expect(run.currentActivity).toBe('Проверяю несколько источников…');
+    run = appendEvent(run, event('c', 'toolResult', {callId: '1'}));
+    expect(run.currentActivity).toBe('Сверяю с реестром рисков…');
+    run = appendEvent(run, event('d', 'toolResult', {callId: '2'}));
+    expect(run.currentActivity).toBe('Думаю');
   });
 });
