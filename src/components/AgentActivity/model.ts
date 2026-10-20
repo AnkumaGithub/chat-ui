@@ -57,7 +57,7 @@ export function openCalls(run: AgentRun): AgentEvent[] {
 }
 // Whole seconds, like a stopwatch: 0, 1, 2… — no «<1 с» that flickers on short calls.
 export const formatDuration = (ms: number) => `${Math.max(0, Math.floor(ms / 1000))} с`;
-export const idleActivity = 'Думаю над ответом';
+export const idleActivity = 'Думаю';
 /** Three statuses while running: the model decides, sources are being collected, or an expert works.
  * An expert outlasts a source, so it is named while it works, even next to a parallel source call. */
 function activity(open: AgentEvent[]): string {

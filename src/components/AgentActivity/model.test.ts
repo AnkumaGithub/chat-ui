@@ -19,7 +19,7 @@ describe('UI run protocol', () => {
     let run = createRun('run', 'request', 0);
     for (const e of [event('a', 'toolCall', {callId: '1', source: 'Реестр'}), event('b', 'error', {callId: '1'})]) run = appendEvent(run, e);
     expect(run.status).toBe('running');
-    expect(run.currentActivity).toBe('Думаю над ответом');
+    expect(run.currentActivity).toBe('Думаю');
   });
   it('summarizes a finished run by its total time only', () => {
     let run = createRun('run', 'request', 0);
@@ -45,11 +45,11 @@ describe('UI run protocol', () => {
   });
   it('has three statuses while running: thinking, sources, expert', () => {
     let run = createRun('run', 'request', 0);
-    expect(run.currentActivity).toBe('Думаю над ответом');
+    expect(run.currentActivity).toBe('Думаю');
     run = appendEvent(run, event('a', 'toolCall', {callId: '1', tool: 'get_company_risks'}));
     expect(run.currentActivity).toBe('Собираю источники');
     run = appendEvent(run, event('b', 'toolResult', {callId: '1'}));
-    expect(run.currentActivity).toBe('Думаю над ответом');
+    expect(run.currentActivity).toBe('Думаю');
     run = appendEvent(run, event('c', 'toolCall', {callId: '2', tool: 'ask_analyst'}));
     expect(run.currentActivity).toBe('Делегирую: аналитик');
   });
@@ -84,7 +84,7 @@ describe('UI run protocol', () => {
     expect(run.currentActivity).toBe('Делегирую: методолог');
     expect(openCalls(run)).toEqual([expert]);
     run = appendEvent(run, event('d', 'handback', {parentCallId: 'expert', callId: 'expert', at: 8000}));
-    expect(run.currentActivity).toBe('Думаю над ответом');
+    expect(run.currentActivity).toBe('Думаю');
     expect(callDuration(run, expert)).toBe(7000);
   });
   it('follows parallel calls: an expert is named while it works, one answer does not reset the status', () => {
@@ -98,6 +98,6 @@ describe('UI run protocol', () => {
     run = appendEvent(run, event('f', 'toolResult', {callId: '1'}));
     expect(run.currentActivity).toBe('Собираю источники');
     run = appendEvent(run, event('d', 'toolResult', {callId: '2'}));
-    expect(run.currentActivity).toBe('Думаю над ответом');
+    expect(run.currentActivity).toBe('Думаю');
   });
 });
