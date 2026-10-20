@@ -86,7 +86,7 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
   return <ol className={classes.trace}>
     {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={activeIds.has(step.event.id)}
       outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined} {...toggle(step.reasoningId)}/>)}
-    {reasoning && <TrailingReasoning reasoning={reasoning} title={running ? 'Думаю' : names.thinking} active={running && !open.length} {...toggle(reasoningId)}/>}
+    {reasoning && <TrailingReasoning reasoning={reasoning} title={running ? 'Думаю' : 'Итоговое рассуждение'} active={running && !open.length} {...toggle(reasoningId)}/>}
   </ol>;
 }
 
