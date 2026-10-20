@@ -13,11 +13,12 @@ const iconByKind: Record<AgentEvent['kind'], EIconName> = {
 
 const outcomeSuffix = { error: ' — недоступен', empty: ' — нет данных' };
 
-type Step = { event: AgentEvent; reasoning: string };
+/** `reasoningId` is the first reasoning chunk: it keeps the expanded state when live reasoning moves under its call. */
+type Step = { event: AgentEvent; reasoning: string; reasoningId?: string };
+type Toggle = { expanded: boolean; onToggle: () => void };
 
 /** A step with the orchestrator reasoning that led to it, collapsed behind a chevron. */
-function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now }: { run: AgentRun; step: Step; outcome?: AgentEvent; active: boolean; now: number }) {
-  const [expanded, setExpanded] = useState(false);
+function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now, expanded, onToggle }: { run: AgentRun; step: Step; outcome?: AgentEvent; active: boolean; now: number } & Toggle) {
   const event = outcome ? {...item, kind: outcome.kind, text: outcome.text} : item;
   const title = event.kind === 'toolCall' || event.kind === 'delegation' ? sourceName(event)
     : event.kind === 'error' || event.kind === 'empty' ? sourceName(event) + outcomeSuffix[event.kind]
@@ -30,7 +31,7 @@ function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now
   const header = <><Icon className={classes.marker} name={iconByKind[event.kind]} width={16} height={16}/><strong>{title}</strong>{duration && <small className={classes.duration}>{duration}</small>}</>;
   return <li className={classes.step} data-kind={event.kind} data-active={active}>
     {reasoning
-      ? <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`${title}: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={() => setExpanded(value => !value)}>
+      ? <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`${title}: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={onToggle}>
           {header}<Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>
         </button>
       : <div className={classes.stepHeader} tabIndex={0}>{header}</div>}
@@ -41,7 +42,23 @@ function TraceStep({ run, step: { event: item, reasoning }, outcome, active, now
   </li>;
 }
 
+/** Live reasoning before its call has started: collapsed like the step it will fold into, so nothing jumps. */
+function LiveReasoning({ reasoning, active, expanded, onToggle }: { reasoning: string; active: boolean } & Toggle) {
+  return <li className={classes.step} data-kind="thinking" data-active={active}>
+    <button type="button" className={`${classes.stepHeader} ${classes.reasoningToggle}`} aria-expanded={expanded} aria-label={`Думаю: ${expanded ? 'скрыть' : 'показать'} рассуждение`} onClick={onToggle}>
+      <Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>Думаю</strong>
+      <Icon className={classes.chevron} name={expanded ? EIconName.chevronFillUp : EIconName.chevronFillDown} width={16} height={16}/>
+    </button>
+    {expanded && <p>{reasoning}</p>}
+  </li>;
+}
+
 function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id?: string): Toggle => ({
+    expanded: !!id && expandedIds.has(id),
+    onToggle: () => id && setExpandedIds(ids => { const next = new Set(ids); if (!next.delete(id)) next.add(id); return next; }),
+  });
   // Only the orchestrator level is shown: an expert is one step, its own calls and reasoning stay inside.
   // A call step only says which source was asked: its result is not repeated,
   // and an unavailable/empty outcome is folded into the same step.
@@ -55,10 +72,12 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
   // no step (the one before the answer) is not shown.
   const grouped: Step[] = [];
   let reasoning = '';
+  let reasoningId: string | undefined;
   for (const event of visible) {
-    if (event.kind === 'thinking') { reasoning += event.text || ''; continue; }
-    grouped.push({event, reasoning});
+    if (event.kind === 'thinking') { reasoning += event.text || ''; reasoningId ??= event.id; continue; }
+    grouped.push({event, reasoning, reasoningId});
     reasoning = '';
+    reasoningId = undefined;
   }
   const liveReasoning = run.status === 'running' && reasoning ? reasoning : '';
   // Every open call is active (parallel calls run together); between calls, the live reasoning or the last step is.
@@ -66,11 +85,8 @@ function TraceSteps({ run, now }: { run: AgentRun; now: number }) {
   const activeIds = new Set(open.length ? open.map(event => event.id) : run.status === 'running' && !liveReasoning ? [grouped.at(-1)?.event.id] : []);
   return <ol className={classes.trace}>
     {grouped.map(step => <TraceStep key={step.event.id} run={run} step={step} now={now} active={activeIds.has(step.event.id)}
-      outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined}/>)}
-    {liveReasoning && <li className={classes.step} data-kind="thinking" data-active={!open.length}>
-      <div className={classes.stepHeader}><Icon className={classes.marker} name={iconByKind.thinking} width={16} height={16}/><strong>Думаю</strong></div>
-      <p>{liveReasoning}</p>
-    </li>}
+      outcome={step.event.kind === 'toolCall' ? outcomes.get(step.event.callId) : undefined} {...toggle(step.reasoningId)}/>)}
+    {liveReasoning && <LiveReasoning reasoning={liveReasoning} active={!open.length} {...toggle(reasoningId)}/>}
   </ol>;
 }
 
