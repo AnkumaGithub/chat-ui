@@ -53,6 +53,19 @@ export const toolNames: Record<string, string> = {
 export function sourceName(event: Pick<AgentEvent, 'tool' | 'source'>): string {
   return toolNames[event.tool || ''] || event.source || 'Источник';
 }
+const callEnds: AgentEventKind[] = ['toolResult', 'empty', 'error', 'handback'];
+/** How long a call was open: until its outcome, the end of the run, or `now` while it still runs. */
+export function callDuration(run: AgentRun, call: AgentEvent, now = Date.now()): number {
+  const end = run.events.find(event => event !== call && event.callId === call.callId && callEnds.includes(event.kind));
+  return (end?.at ?? run.finishedAt ?? now) - call.at;
+}
+/** The source or expert call the run is waiting for right now, if any. */
+export function openCall(run: AgentRun): AgentEvent | undefined {
+  if (run.status !== 'running') return undefined;
+  return run.events.filter(event => (event.kind === 'toolCall' || event.kind === 'delegation') && event.callId
+    && !run.events.some(other => other !== event && other.callId === event.callId && callEnds.includes(other.kind))).at(-1);
+}
+export const formatDuration = (ms: number) => ms < 1000 ? '<1 с' : `${Math.round(ms / 1000)} с`;
 export function createRun(runId: string, requestId: string, startedAt: number): AgentRun {
   return { runId, requestId, startedAt, currentActivity: 'Думаю', status: 'running', events: [] };
 }
@@ -100,5 +113,5 @@ export function runSummary(run: AgentRun): string {
   const successful = sources.filter(source => source.status === 'success').length;
   const incomplete = sources.length - successful;
   const experts = run.events.filter(event => event.kind === 'delegation').length;
-  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}${experts ? ` · экспертов: ${experts}` : ''}`;
+  return `${run.status === 'failed' ? 'Прогон прерван' : 'Ответ готов'}${run.finishedAt ? ` за ${formatDuration(run.finishedAt - run.startedAt)}` : ''}${sources.length ? ` · источников: ${successful}/${sources.length}` : ''}${incomplete ? ` · с замечаниями: ${incomplete}` : ''}${experts ? ` · экспертов: ${experts}` : ''}`;
 }

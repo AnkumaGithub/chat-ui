@@ -34,6 +34,7 @@
 .step:hover > .stepHeader .marker, .step:focus-within > .stepHeader .marker { opacity: 1; }
 .step:hover::after, .step:focus-within::after { opacity: 0; }
 .step:focus-visible { outline: 1px solid var(--borderFocus); outline-offset: 3px; border-radius: 6px; }
+.duration { color: var(--textBaseSecondary); font-size: 13px; font-variant-numeric: tabular-nums; }
 .plan li { grid-template-columns: 1fr auto; font-size: 13px; color: var(--textBaseSecondary); }
 .backendPlan { list-style: none; display: grid; gap: 5px; margin: 6px 0 0; padding: 0; color: var(--textBaseSecondary); font-size: 13px; line-height: 18px; }
 .backendPlan li { position: relative; padding-left: 14px; }

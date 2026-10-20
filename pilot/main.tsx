@@ -31,7 +31,7 @@ function historicalThread(id: string, title: string, scenario: ScenarioId, minut
   const {events, answer} = fixture(scenario, responseId, startedAt);
   let run = createRun(responseId, requestId, startedAt);
   events.forEach(event => { run = appendEvent(run, event); });
-  if (events.length) run = appendEvent(run, {id: `${responseId}-finish`, runId: responseId, at: startedAt + 10_000, kind: 'finish'});
+  if (events.length) run = appendEvent(run, {id: `${responseId}-finish`, runId: responseId, at: events[events.length - 1].at + 1500, kind: 'finish'});
   return {id, title, scenario, pinned, initialSkill, updatedAt: startedAt, runs: events.length ? {[responseId]: run} : {}, messages: [
     {id: requestId, role: ERoles.user, text: scenarios.find(item => item.id === scenario)!.question, timeCreated: new Date(startedAt).toISOString()},
     {id: responseId, requestId, role: ERoles.bot, text: answer, timeCreated: new Date(startedAt + 1).toISOString(), extras: scenario === 'rich' ? {fileIds:'["demo-report"]', chart} as IMessage['extras'] : undefined},
@@ -103,7 +103,7 @@ function App() {
     };
     if (instant) { events.forEach(event => { run = appendEvent(run,event); }); finish(); }
     else if (!events.length) { later(finish, 2200); }
-    else { events.forEach((event,index) => later(() => {run = appendEvent(run, {...event, at:Date.now()}); updateRun();}, (index + 1) * 700)); const chunks = answer.match(/.{1,36}(?:\s|$)|.{1,36}/gs) || [answer]; let text = ''; chunks.forEach((chunk,index) => later(() => {text += chunk; addMessageAction(ctx, {...base,text,extras:{agentPending:'true'}});}, events.length * 700 + (index + 1) * 65)); later(finish, events.length * 700 + (chunks.length + 1) * 65); }
+    else { const answerAt = events[events.length - 1].at - startedAt + 700; events.forEach(event => later(() => {run = appendEvent(run, {...event, at:Date.now()}); updateRun();}, event.at - startedAt)); const chunks = answer.match(/.{1,36}(?:\s|$)|.{1,36}/gs) || [answer]; let text = ''; chunks.forEach((chunk,index) => later(() => {text += chunk; addMessageAction(ctx, {...base,text,extras:{agentPending:'true'}});}, answerAt + (index + 1) * 65)); later(finish, answerAt + (chunks.length + 1) * 65); }
     chat$.openChat();
   }
   useEffect(() => { const listener = (event: Event) => setActionUrl((event as CustomEvent<string>).detail); window.addEventListener('pilot:navigate',listener); later(() => {loadThread(threadsRef.current[0]); if (window.innerWidth >= 600) chat$.changeChatState(EChatState.fullScreen); chat$.openChat();}, 50); return () => {clearTimers(); window.removeEventListener('pilot:navigate',listener);}; }, []);

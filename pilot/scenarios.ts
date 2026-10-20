@@ -31,11 +31,19 @@ export function fixture(scenario: ScenarioId, runId: string, start: number) {
     );
     return {events, backendSteps, answer: '**Демонстрационный итоговый ответ.** Его содержание в настоящем запросе генерирует модель; фиксированных текстов ответа в бэкенде нет.'};
   }
-  const add = (kind: AgentEvent['kind'], data: Partial<AgentEvent> = {}) => events.push({id: `${runId}-${events.length}`, runId, at: start + (events.length + 1) * 700, kind, ...data});
+  // Sources answer at different speeds, so call durations in the trace differ; a timeout takes longest.
+  const answerTime: Record<string, number> = {get_company_profile: 1800, ask_methodologist: 4200, get_company_risks: 2600, get_company_laws: 2100, get_incident_form: 1200, get_company_fin_indicators: 3200};
+  let clock = start;
+  const add = (kind: AgentEvent['kind'], data: Partial<AgentEvent> = {}) => {
+    clock += kind === 'error' ? 5000 : kind === 'toolResult' || kind === 'empty' ? answerTime[data.tool || ''] ?? 2000 : 700;
+    events.push({id: `${runId}-${events.length}`, runId, at: clock, kind, ...data});
+  };
+  add('thinking', {text: 'Сначала проверю профиль компании, затем сопоставлю его с методологией и реестром. Демонстрационный шаг.'});
   add('toolCall', {callId:'profile', tool:'get_company_profile', source:'Профайлер', args:{company_id:'demo-company', sections:['activities', 'operations']}});
   add('toolResult', {callId:'profile', tool:'get_company_profile', source:'Профайлер', result:{company:'Демо-компания', industry:'Производство', locations:3, key_process:'Поставки комплектующих'}});
   if (scenario === 'subagent') {
     add('delegation', {callId:'expert', tool:'task', label:'Подключаю методолога…', source:'Методолог', args:{subagent_type:'methodologist', description:'Оценить риск сбоя поставок по методологии'}});
+    add('thinking', {parentCallId:'expert', text:'Рассуждение методолога: в ленте не показывается.'});
     add('message', {parentCallId:'expert', text:'Проверю критерии оценки и необходимые меры контроля.'});
     add('toolCall', {parentCallId:'expert', callId:'method', tool:'ask_methodologist', source:'Методолог', args:{query:'Критерии риска сбоя поставок', company_id:'demo-company'}});
     add('toolResult', {parentCallId:'expert', callId:'method', tool:'ask_methodologist', source:'Методолог', result:{criteria:['Вероятность', 'Влияние', 'Действующие контроли'], recommendations:['Резервный поставщик', 'Контроль критичных запасов']}});

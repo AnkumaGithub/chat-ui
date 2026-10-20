@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appendEvent, createRun, runSummary, sourceName, sourcesForRun, type AgentEvent } from './model';
+import { appendEvent, callDuration, createRun, formatDuration, openCall, runSummary, sourceName, sourcesForRun, type AgentEvent } from './model';
 const event = (id: string, kind: AgentEvent['kind'], extra: Partial<AgentEvent> = {}): AgentEvent => ({ id, kind, runId: 'run', at: 1000, ...extra });
 describe('UI run protocol', () => {
   it('isolates runs and deduplicates reconnect replay', () => {
@@ -27,7 +27,7 @@ describe('UI run protocol', () => {
     for (const e of [event('a', 'toolCall', {callId: '1', source: 'Компания', tool: 'get_company_profile'}), event('b', 'empty', {callId: '1'}), event('c', 'finish', {at: 12000})]) run = appendEvent(run, e);
     expect(sourcesForRun(run)[0].status).toBe('empty');
     expect(runSummary(run)).toContain('0/1');
-    expect(runSummary(run)).not.toMatch(/\d+ с(?:\s|$)/);
+    expect(runSummary(run)).toContain('Ответ готов за 12 с');
     expect(appendEvent(run, event('late', 'toolCall'))).toBe(run);
   });
   it('terminates on fatal error without claiming a completed answer', () => {
@@ -47,7 +47,7 @@ describe('UI run protocol', () => {
     let run = createRun('run', 'request', 0);
     run = appendEvent(run, event('step', 'message', {label: 'Посмотрел профиль компании'}));
     run = appendEvent(run, event('finish', 'finish', {at: 2000}));
-    expect(runSummary(run)).toBe('Ответ готов');
+    expect(runSummary(run)).toBe('Ответ готов за 2 с');
   });
   it('names sources by role instead of raw tool ids', () => {
     expect(sourceName({tool: 'get_company_profile', source: 'Данные компании'})).toBe('Профайлер');
@@ -60,5 +60,23 @@ describe('UI run protocol', () => {
     expect(run.currentActivity).toBe('Сверяю с реестром рисков…');
     run = appendEvent(run, event('b', 'toolResult', {callId: '1'}));
     expect(run.currentActivity).toBe('Думаю');
+  });
+  it('times each source call and keeps counting only while it is open', () => {
+    let run = createRun('run', 'request', 0);
+    const call = event('a', 'toolCall', {callId: '1', tool: 'ask_methodologist', at: 1000});
+    run = appendEvent(run, call);
+    expect(openCall(run)).toBe(call);
+    expect(formatDuration(callDuration(run, call, 13_400))).toBe('12 с');
+    run = appendEvent(run, event('b', 'toolResult', {callId: '1', at: 5200}));
+    expect(openCall(run)).toBeUndefined();
+    expect(formatDuration(callDuration(run, call, 60_000))).toBe('4 с');
+  });
+  it('stops an open call counter when the run fails', () => {
+    let run = createRun('run', 'request', 0);
+    const call = event('a', 'toolCall', {callId: '1', at: 1000});
+    run = appendEvent(run, call);
+    run = appendEvent(run, event('b', 'error', {fatal: true, at: 8000}));
+    expect(openCall(run)).toBeUndefined();
+    expect(callDuration(run, call, 60_000)).toBe(7000);
   });
 });
